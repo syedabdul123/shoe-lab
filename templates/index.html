@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f7f6f1">
+  <title>SOLE / FOUND — Shoes for the everyday</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <div class="announcement">Free shipping on orders over $100 <span>↗</span></div>
+  <header class="site-header">
+    <a class="wordmark" href="/" aria-label="Sole Found home">SOLE<span>/</span>FOUND</a>
+    <nav class="main-nav" aria-label="Main navigation">
+      <a class="active" href="#shop">Shop all</a>
+      <a href="#shop" data-nav-filter="Running">Running</a>
+      <a href="#shop" data-nav-filter="Casual">Everyday</a>
+      <a href="#shop" data-nav-filter="Outdoor">Outdoor</a>
+    </nav>
+    <button class="bag-button" type="button" aria-label="Shopping bag, 0 items">
+      BAG <span class="bag-count">0</span>
+    </button>
+  </header>
+
+  <main>
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="hero-copy">
+        <p class="eyebrow"><span class="eyebrow-dot"></span> GOOD SHOES. GOOD DAYS.</p>
+        <h1 id="hero-title">Find your<br>everyday <em>stride.</em></h1>
+        <p class="hero-text">Considered comfort for wherever the day takes you. Meet the pairs you'll reach for on repeat.</p>
+        <a class="shop-link" href="#shop">SHOP THE COLLECTION <span aria-hidden="true">↘</span></a>
+      </div>
+      <div class="hero-visual">
+        <img src="https://images.unsplash.com/photo-1552346154-21d32810aba3?auto=format&fit=crop&w=1400&q=90" alt="Colorful sneaker in a studio setting">
+        <div class="hero-stamp" aria-label="Made for moving">
+          <span>MADE FOR</span><strong>moving</strong><span>EST. EVERYDAY</span>
+        </div>
+        <span class="hero-index">01 / 06</span>
+      </div>
+      <span class="hero-side-note">WALK YOUR OWN WAY — 2025</span>
+    </section>
+
+    <section class="collection" id="shop" aria-labelledby="collection-title">
+      <div class="collection-heading">
+        <div>
+          <p class="eyebrow">THE LINEUP / 001</p>
+          <h2 id="collection-title">Good things<br class="mobile-break"> underfoot.</h2>
+        </div>
+        <label class="search-box">
+          <span class="search-icon" aria-hidden="true">⌕</span>
+          <input id="product-search" type="search" placeholder="Find your pair" aria-label="Search shoes">
+          <kbd>/</kbd>
+        </label>
+      </div>
+
+      <div class="shop-toolbar">
+        <div class="filters" role="group" aria-label="Filter shoes by category">
+          <button class="filter-button selected" type="button" data-filter="All">All pairs <span>06</span></button>
+          <button class="filter-button" type="button" data-filter="Running">Running</button>
+          <button class="filter-button" type="button" data-filter="Casual">Everyday</button>
+          <button class="filter-button" type="button" data-filter="Outdoor">Outdoor</button>
+        </div>
+        <span class="result-count" id="result-count">06 PAIRS</span>
+      </div>
+
+      <div class="product-grid" id="product-grid">
+        {% for product in products %}
+        <article class="product-card" data-category="{{ product.category }}" data-name="{{ product.name|lower }}">
+          <div class="product-image {{ product.tone }}">
+            <img src="{{ product.image }}" alt="{{ product.name }} sneaker" loading="lazy">
+            {% if product.label %}<span class="product-label">{{ product.label }}</span>{% endif %}
+            <button class="quick-add" type="button" data-product="{{ product.id }}" aria-label="Add {{ product.name }} to bag">+</button>
+          </div>
+          <div class="product-info">
+            <div><h3>{{ product.name }}</h3><p>{{ product.color }}</p></div>
+            <span class="product-price">${{ product.price }}</span>
+          </div>
+          <span class="product-category">{{ product.category }}</span>
+        </article>
+        {% endfor %}
+        <p class="empty-state" id="empty-state" hidden>No pairs match that search. Try another name or category.</p>
+      </div>
+    </section>
+
+    <section class="closing-note">
+      <span class="closing-mark">S/F</span>
+      <p>Less fuss. More footwork.</p>
+      <a href="#shop" aria-label="Back to the shoe collection">BACK TO THE GOOD STUFF ↑</a>
+    </section>
+  </main>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script>
+    const filterButtons = [...document.querySelectorAll(".filter-button")];
+    const cards = [...document.querySelectorAll(".product-card")];
+    const searchInput = document.querySelector("#product-search");
+    const resultCount = document.querySelector("#result-count");
+    const emptyState = document.querySelector("#empty-state");
+    const toast = document.querySelector("#toast");
+    const bagCount = document.querySelector(".bag-count");
+    let activeFilter = "All";
+    let bagTotal = 0;
+    let toastTimer;
+
+    function updateProducts() {
+      const query = searchInput.value.trim().toLowerCase();
+      let visibleCount = 0;
+
+      cards.forEach((card) => {
+        const matchesCategory = activeFilter === "All" || card.dataset.category === activeFilter;
+        const matchesSearch = card.dataset.name.includes(query);
+        const isVisible = matchesCategory && matchesSearch;
+        card.hidden = !isVisible;
+        if (isVisible) visibleCount += 1;
+      });
+
+      resultCount.textContent = `${String(visibleCount).padStart(2, "0")} PAIRS`;
+      emptyState.hidden = visibleCount > 0;
+    }
+
+    filterButtons.forEach((button) => {
+      button.addEventListener("click", () => {
+        activeFilter = button.dataset.filter;
+        filterButtons.forEach((item) => item.classList.toggle("selected", item === button));
+        updateProducts();
+      });
+    });
+
+    document.querySelectorAll("[data-nav-filter]").forEach((link) => {
+      link.addEventListener("click", () => {
+        activeFilter = link.dataset.navFilter;
+        filterButtons.forEach((button) => button.classList.toggle("selected", button.dataset.filter === activeFilter));
+        updateProducts();
+      });
+    });
+
+    searchInput.addEventListener("input", updateProducts);
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "/" && document.activeElement !== searchInput) {
+        event.preventDefault();
+        searchInput.focus();
+      }
+    });
+
+    document.querySelectorAll(".quick-add").forEach((button) => {
+      button.addEventListener("click", () => {
+        bagTotal += 1;
+        bagCount.textContent = bagTotal;
+        document.querySelector(".bag-button").setAttribute("aria-label", `Shopping bag, ${bagTotal} items`);
+        const productName = button.closest(".product-card").querySelector("h3").textContent;
+        toast.textContent = `${productName} added to your bag`;
+        toast.classList.add("visible");
+        window.clearTimeout(toastTimer);
+        toastTimer = window.setTimeout(() => toast.classList.remove("visible"), 2200);
+      });
+    });
+  </script>
+</body>
+</html>
