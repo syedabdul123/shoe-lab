@@ -1,0 +1,54 @@
+---
+- name: Deploy Shoe Lab to three application servers
+  hosts: shoe_app
+  become: true
+  vars:
+    app_name: shoe-lab
+    app_user: shoeapp
+    app_directory: /opt/shoe-lab
+    app_repository: https://github.com/syedabdul123/shoe-lab.git
+    app_branch: main
+
+  tasks:
+    - name: Install system packages
+      ansible.builtin.apt:
+        name:
+          - docker.io
+          - docker-compose-v2
+          - git
+        state: present
+        update_cache: true
+
+    - name: Enable and start Docker
+      ansible.builtin.service:
+        name: docker
+        enabled: true
+        state: started
+
+    - name: Create application user
+      ansible.builtin.user:
+        name: "{{ app_user }}"
+        system: true
+        create_home: false
+        shell: /usr/sbin/nologin
+
+    - name: Create application directory
+      ansible.builtin.file:
+        path: "{{ app_directory }}"
+        state: directory
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+        mode: "0755"
+
+    - name: Check out application code
+      become_user: "{{ app_user }}"
+      ansible.builtin.git:
+        repo: "{{ app_repository }}"
+        dest: "{{ app_directory }}"
+        version: "{{ app_branch }}"
+        update: true
+
+    - name: Build and start application container
+      ansible.builtin.command:
+        cmd: docker compose up --build --detach --remove-orphans
+        chdir: "{{ app_directory }}"

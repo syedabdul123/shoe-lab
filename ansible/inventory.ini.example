@@ -1,0 +1,9 @@
+# Replace these documentation-only IP addresses with your server IPs.
+# The SSH user must be able to become root with sudo.
+[shoe_app]
+server1 ansible_host=192.0.2.11
+server2 ansible_host=192.0.2.12
+server3 ansible_host=192.0.2.13
+
+[shoe_app:vars]
+ansible_user=ubuntu
