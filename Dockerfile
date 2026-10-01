@@ -1,19 +1,55 @@
-FROM python:3.12-slim
+#!/bin/bash
+set -euo pipefail
 
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
+REMOTE="ec2-user@16.171.133.106"
+IMAGE="flask-web:${BUILD_NUMBER}"
+ARCHIVE="flask-web-${BUILD_NUMBER}.tar.gz"
 
-WORKDIR /app
+trap 'rm -f "$ARCHIVE"' EXIT
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+echo "Building Docker image..."
+docker build -t "$IMAGE" .
 
-RUN useradd --create-home --shell /usr/sbin/nologin appuser
-COPY --chown=appuser:appuser app.py ./
-COPY --chown=appuser:appuser templates/ ./templates/
-COPY --chown=appuser:appuser static/ ./static/
+echo "Saving Docker image..."
+docker save "$IMAGE" | gzip > "$ARCHIVE"
 
-USER appuser
-EXPOSE 8000
+echo "Transferring image to EC2..."
+scp -o BatchMode=yes -o StrictHostKeyChecking=yes \
+    "$ARCHIVE" "${REMOTE}:/home/ec2-user/${ARCHIVE}"
 
-CMD ["gunicorn", "--workers", "2", "--bind", "0.0.0.0:8000", "app:app"]
+echo "Starting deployment..."
+ssh -o BatchMode=yes -o StrictHostKeyChecking=yes \
+    "$REMOTE" bash -s -- "$IMAGE" "$ARCHIVE" <<'REMOTE_SCRIPT'
+set -euo pipefail
+
+IMAGE="$1"
+ARCHIVE="$2"
+CONTAINER="flask-web"
+
+docker load -i "/home/ec2-user/$ARCHIVE"
+rm -f "/home/ec2-user/$ARCHIVE"
+
+if docker container inspect "$CONTAINER" >/dev/null 2>&1; then
+    docker rm -f "$CONTAINER"
+fi
+
+docker run -d \
+    --name "$CONTAINER" \
+    --restart unless-stopped \
+    -p 80:5000 \
+    "$IMAGE"
+
+for attempt in $(seq 1 15); do
+    if curl --fail --silent --output /dev/null \
+        --max-time 2 http://127.0.0.1/; then
+        echo "AWS deployment successful"
+        docker ps --filter "name=$CONTAINER"
+        exit 0
+    fi
+    sleep 2
+done
+
+echo "Application did not respond"
+docker logs "$CONTAINER"
+exit 1
+REMOTE_SCRIPT
